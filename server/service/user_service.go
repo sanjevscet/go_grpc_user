@@ -3,7 +3,7 @@ package service
 import (
 	"context"
 	"errors"
-	userpb "go-grpc-user/proto"
+	userpb "go-grpc-user/proto/user"
 	"io"
 	"time"
 
@@ -131,13 +131,16 @@ func (s *UserService) CreateUsers(
 		err = tx.QueryRow(
 			ctx,
 			`
-				INSERT INTO users (name, email)
-				VALUES ($1, $2)
+				INSERT INTO users (name, email, username, password, role)
+				VALUES ($1, $2, $3, $4, $5)
 				ON CONFLICT (email) DO NOTHING
 				RETURNING ID
 			`,
 			req.Name,
 			req.Email,
+			req.Username,
+			req.Password,
+			req.Role,
 		).Scan(&insertedId)
 
 		if errors.Is(err, pgx.ErrNoRows) {

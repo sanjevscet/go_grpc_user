@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
-	userpb "go-grpc-user/proto"
+	authpb "go-grpc-user/proto/auth"
+	userpb "go-grpc-user/proto/user"
+	"go-grpc-user/server/auth"
 	"go-grpc-user/server/config"
 	"go-grpc-user/server/db"
 	"go-grpc-user/server/service"
@@ -28,7 +30,13 @@ func main() {
 		log.Fatalf("failed to listen %v", err)
 	}
 
-	grpcServer := grpc.NewServer()
+	grpcServer := grpc.NewServer(
+		grpc.UnaryInterceptor(auth.UnaryInterceptot()),
+		grpc.StreamInterceptor(auth.StreamInterceptor()),
+	)
+
+	authService := auth.NewAuthService(dbPool)
+	authpb.RegisterAuthServiceServer(grpcServer, authService)
 
 	userService := service.NewUserService(dbPool)
 	userpb.RegisterUserServiceServer(grpcServer, userService)

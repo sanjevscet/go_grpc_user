@@ -2,13 +2,15 @@ package main
 
 import (
 	"context"
-	userpb "go-grpc-user/proto"
+	authpb "go-grpc-user/proto/auth"
+	userpb "go-grpc-user/proto/user"
 	"io"
 	"log"
 	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
 )
 
 func main() {
@@ -21,15 +23,29 @@ func main() {
 	}
 	defer conn.Close()
 
-	client := userpb.NewUserServiceClient(conn)
+	userClient := userpb.NewUserServiceClient(conn)
+	authClient := authpb.NewAuthServiceClient(conn)
+
+	loginRes, err := authClient.Login(context.Background(), &authpb.LoginRequest{
+		Username: "sanjeev",
+		Password: "sanjeev123",
+	})
+
+	if err != nil {
+		log.Fatalf("login failed %v", err)
+	}
+
+	token := loginRes.AccessToken
+	log.Printf("Login successful %s\n", token)
+	md := metadata.Pairs("authorization", "Bearer "+token)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	getUser(client, ctx, 1)
-	// getUsers(client, ctx)
-	createUsers(client, ctx)
-
+	ctx = metadata.NewOutgoingContext(ctx, md)
+	getUser(userClient, ctx, 1)
+	getUsers(userClient, ctx)
+	createUsers(userClient, ctx)
 }
 
 func getUser(client userpb.UserServiceClient, ctx context.Context, id int32) {
@@ -68,10 +84,10 @@ func createUsers(client userpb.UserServiceClient, ctx context.Context) {
 	}
 
 	users := []*userpb.CreateUserRequest{
-		{Name: "Tannu", Email: "tannu@example.com"},
-		{Name: "Deepu", Email: "deepu@example.com"},
-		{Name: "Guddu", Email: "gudu@example.com"},
-		{Name: "ac", Email: "gudu1@example.com"},
+		{Name: "Tannu", Email: "tannu@example.com", Password: "tanu123", Role: "user", Username: "tanu"},
+		{Name: "Deepu", Email: "deepu@example.com", Password: "deepu123", Role: "user", Username: "deepu"},
+		{Name: "Guddu", Email: "gudu@example.com", Password: "guddu123", Role: "user", Username: "guddu"},
+		{Name: "John", Email: "john@example.com", Password: "john123", Role: "user", Username: "john"},
 	}
 
 	for _, user := range users {
