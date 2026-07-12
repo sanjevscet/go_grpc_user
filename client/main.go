@@ -23,7 +23,7 @@ func main() {
 
 	client := userpb.NewUserServiceClient(conn)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
 	log.Println("=========== Get Single User Unary Call=============")
