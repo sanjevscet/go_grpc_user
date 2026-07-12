@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	userpb "go-grpc-user/proto"
+	"io"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -91,4 +92,60 @@ func (s *UserService) GetUsers(
 	}
 
 	return nil
+}
+
+func (s *UserService) CreateUsers(
+	stream grpc.ClientStreamingServer[userpb.CreateUserRequest, userpb.CreateUserResponse],
+) error {
+	ctx := stream.Context()
+
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return status.Errorf(codes.Internal, "failed to begin transaction %v", err)
+	}
+	defer tx.Rollback(ctx)
+
+	createdCount := int32(0)
+
+	for {
+		req, err := stream.Recv()
+
+		if errors.Is(err, io.EOF) {
+			if err := tx.Commit(ctx); err != nil {
+				return status.Errorf(codes.Internal, "failed to commit transaction: %v", err)
+			}
+			return stream.SendAndClose(&userpb.CreateUserResponse{
+				CreatedCount: createdCount,
+				Message:      "users created successfully",
+			})
+		}
+		if err != nil {
+			return status.Errorf(codes.Internal, "failed to receive users %v", err)
+		}
+		if req.Name == "" || req.Email == "" {
+			return status.Error(codes.Internal, "named & email are required")
+		}
+
+		var insertedId int32
+
+		err = tx.QueryRow(
+			ctx,
+			`
+				INSERT INTO users (name, email)
+				VALUES ($1, $2)
+				ON CONFLICT (email) DO NOTHING
+				RETURNING ID
+			`,
+			req.Name,
+			req.Email,
+		).Scan(&insertedId)
+
+		if errors.Is(err, pgx.ErrNoRows) {
+			continue
+		}
+		if err != nil {
+			return status.Errorf(codes.Internal, "failed to insert users: %v", err)
+		}
+		createdCount++
+	}
 }

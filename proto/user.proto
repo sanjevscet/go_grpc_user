@@ -7,6 +7,9 @@ option go_package = "go_grpc_user/proto;userpb";
 service UserService {
     rpc GetUser(GetUserRequest) returns (User);
     rpc GetUsers(GetUsersRequest) returns (stream User);
+
+    // client streaminh
+    rpc CreateUsers(stream CreateUserRequest) returns (CreateUserResponse);
 }
 
 message GetUserRequest {
@@ -19,4 +22,14 @@ message User {
     int32 id = 1;
     string name = 2;
     string email = 3;
+}
+
+message CreateUserRequest {
+    string name = 1;
+    string email = 2;
+}
+
+message CreateUserResponse {
+    int32 created_count = 1;
+    string message = 2;
 }
